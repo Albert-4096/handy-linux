@@ -31,7 +31,10 @@ const omarchyTokens = {
   "--color-background": "background",
   "--color-text": "foreground",
   "--color-logo-primary": "accent",
-  "--color-logo-stroke": "foreground",
+  "--color-wordmark": "accent",
+  "--color-wordmark-stroke": "foreground",
+  "--color-mascot-line": "background",
+  "--color-plum": "foreground",
   "--color-background-ui": "accent",
   "--color-mid-gray": "foreground",
 } as const;

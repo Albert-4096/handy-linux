@@ -257,3 +257,60 @@ test("an in-flight Omarchy read cannot overwrite an explicit appearance", async 
     "rgb(251, 251, 251)",
   );
 });
+
+test("upstream model loading states keep the live popup and timer usable", async ({
+  page,
+}) => {
+  await emit(page, "show-overlay", "streaming");
+  await expect(page.locator(".scard")).toBeVisible();
+  await emit(page, "recording-ready");
+  await emit(page, "model-state-changed", { event_type: "loading_started" });
+  await expect(page.locator(".sloading")).toBeVisible({ timeout: 3500 });
+  await expect(page.locator(".scard")).toHaveClass(/open/);
+  await expect(page.locator(".stimer")).toBeVisible();
+  await emit(page, "stream-phase-event", {
+    phase: "working",
+    kind: "transcribing",
+  });
+  await expect(page.locator(".swork-label")).toHaveText("Loading model...");
+  await emit(page, "model-state-changed", { event_type: "loading_completed" });
+  await expect(page.locator(".swork-label")).toHaveText("Transcribing...");
+});
+
+test("upstream notices fit compact and live windows and cannot hide the next recording", async ({
+  page,
+}) => {
+  const notice = {
+    code: "PasteFailed",
+    level: "warning",
+    source: "Dictation",
+    detail: null,
+  };
+  for (const state of ["notice", "live_notice"]) {
+    await page.setViewportSize(
+      state === "notice"
+        ? { width: 320, height: 88 }
+        : { width: 440, height: 160 },
+    );
+    await emit(page, "overlay-notice", notice);
+    await emit(page, "show-overlay", state);
+    await expect(page.locator(".scard.cnotice")).toBeVisible();
+    await expect(page.locator(".nlabel:not(.nprobe)")).not.toBeEmpty();
+    await page.waitForTimeout(500);
+    const box = (await page.locator(".scard").boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    await page.locator(".scard").click();
+    expect(
+      await page.evaluate(() => (window as any).overlayTest.calls),
+    ).toContain("dismiss_overlay_notice");
+    await emit(page, "hide-overlay");
+    await emit(page, "show-overlay", "recording");
+    await page.waitForTimeout(400);
+    await expect(page.locator(".scard")).toBeVisible();
+    await expect(page.locator(".scard")).not.toHaveClass(/cnotice/);
+    await expect(page.locator(".stimer")).toBeVisible();
+  }
+});

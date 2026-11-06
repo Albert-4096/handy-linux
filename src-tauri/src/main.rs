@@ -4,12 +4,8 @@
 use clap::Parser;
 use handy_app_lib::CliArgs;
 
-mod webkit_renderer;
-
 fn main() {
-    let cli_args = CliArgs::parse();
-
-    webkit_renderer::apply();
+    handy_app_lib::webkit_renderer::apply();
 
     #[cfg(target_os = "windows")]
     {
@@ -22,5 +18,13 @@ fn main() {
         }
     }
 
+    // Transcription worker: runs transcribe.cpp in isolation and never touches
+    // Tauri, the CLI, or single-instance handling. Checked after the env setup
+    // above so the worker inherits it (e.g. the Vulkan layer opt-out).
+    if handy_app_lib::engine_supervisor::is_worker_invocation() {
+        std::process::exit(handy_app_lib::engine_supervisor::run_worker());
+    }
+
+    let cli_args = CliArgs::parse();
     handy_app_lib::run(cli_args)
 }

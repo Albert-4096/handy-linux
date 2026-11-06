@@ -1,6 +1,6 @@
 # Handy Linux
 
-A Linux-focused fork of [Handy](https://github.com/cjpais/Handy), based on v0.9.8.
+A Linux-focused fork of [Handy](https://github.com/cjpais/Handy), based on v0.10.0.
 Handy turns speech into text locally. This fork keeps its transcription engine
 and concentrates on the recording overlay.
 
@@ -10,7 +10,7 @@ and concentrates on the recording overlay.
 
 ## What changes
 
-- A backport of the WebKitGTK 2.54 renderer fix, so the complete popup keeps painting on modern Linux.
+- The upstream WebKitGTK 2.54 renderer fix, so the complete popup keeps painting on modern Linux.
 - A larger floating pill with a spring entrance and microphone-reactive waveform.
 - Elapsed recording time in both compact and live modes.
 - A 32-pixel cancel target, translated label, and visible keyboard focus.
@@ -82,6 +82,12 @@ text, accent, and light/dark mode. No Omarchy hook or restart is needed. Explici
 Light or Dark settings override this integration. If that palette file is
 unavailable, System follows the desktop's normal light/dark preference.
 
+## Upgrading from Handy Linux 0.9.8
+
+Handy 0.10.0 replaces the ONNX speech models with GGUF models. If your selected
+model is retired, download its replacement in the model picker before dictating.
+Old model files remain available until you explicitly remove them.
+
 ## Existing Handy data
 
 Handy Linux stores data in `~/.local/share/io.github.handy-linux/`.
@@ -113,6 +119,6 @@ Wayland check of rendering, focus, microphone capture, and text insertion.
 MIT, as in [LICENSE](LICENSE). Handy was created by CJ Pais and its contributors.
 Handy Linux is an independent fork and is not an official Handy release.
 Upstream links in the original documentation describe upstream Handy.
-The renderer fix is adapted from Evgeny Khudoba’s [upstream PR #2360](https://github.com/cjpais/Handy/pull/2360), commit `f3d8b876fc100d85f95e5ce1c1299c0ebaf90be5`.
+The renderer fix comes from Evgeny Khudoba’s [upstream PR #2360](https://github.com/cjpais/Handy/pull/2360), commit `f3d8b876fc100d85f95e5ce1c1299c0ebaf90be5`.
 
 See [README.md](README.md) for the original project documentation.
