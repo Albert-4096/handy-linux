@@ -1,3 +1,7 @@
+> **Handy Linux** — an independent Linux-focused fork of Handy v0.9.8.
+> Start with [the fork guide](HANDY_LINUX.md) for changes, builds, and installation.
+> The original Handy documentation follows below.
+
 # Handy
 
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/WVBeWsNXK4)

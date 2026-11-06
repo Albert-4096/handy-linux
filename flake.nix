@@ -167,7 +167,6 @@
 
             preFixup = ''
               gappsWrapperArgs+=(
-                --set WEBKIT_DISABLE_DMABUF_RENDERER 1
                 --set ALSA_PLUGIN_DIR "${combinedAlsaPlugins}"
                 # Self-update can't work against an immutable /nix/store install
                 # (downloadAndInstall would try to overwrite the store path), so
@@ -180,7 +179,7 @@
               description = "A free, open source, and extensible speech-to-text application that works completely offline";
               homepage = "https://github.com/cjpais/Handy";
               license = lib.licenses.mit;
-              mainProgram = "handy";
+              mainProgram = "handy-linux";
               platforms = supportedSystems;
             };
           };

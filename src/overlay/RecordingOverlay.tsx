@@ -1,4 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
+import { animate, stagger } from "animejs";
+import { motion, useReducedMotion } from "motion/react";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import "./RecordingOverlay.css";
@@ -20,7 +22,11 @@ const WAVE_BARS = 9;
 
 const RecordingOverlay: React.FC = () => {
   const { t } = useTranslation();
+  const reducedMotion = useReducedMotion();
+  const waveRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout>>();
   const [state, setState] = useState<OverlayState>("recording");
   // `Stream::play()` returning does not mean hardware callbacks are flowing.
   // Stay visually in an arming state until the backend processes the first
@@ -55,12 +61,14 @@ const RecordingOverlay: React.FC = () => {
   useEffect(() => {
     const setupEventListeners = async () => {
       const unlistenShow = await listen("show-overlay", async (event) => {
+        clearTimeout(hideTimer.current);
         const overlayState = event.payload as OverlayState;
         // Reset synchronously before settings I/O. A fast microphone can emit
         // recording-ready while the awaits below are in flight; resetting after
         // them would overwrite that event and leave the overlay stuck arming.
         if (overlayState === "recording" || overlayState === "streaming") {
           setCaptureReady(false);
+          setElapsed(0);
           smoothedLevelsRef.current = Array(16).fill(0);
           setLevels(Array(WAVE_BARS).fill(0));
           setStreamText({ committed: "", tentative: "" });
@@ -86,11 +94,14 @@ const RecordingOverlay: React.FC = () => {
           setElapsed(0);
           setSession((s) => s + 1); // remount the card fresh for this session
         }
+        setIsMounted(true);
         setIsVisible(true);
       });
 
       const unlistenHide = await listen("hide-overlay", () => {
+        clearTimeout(hideTimer.current);
         setIsVisible(false);
+        hideTimer.current = setTimeout(() => setIsMounted(false), 180);
         setCaptureReady(false);
       });
 
@@ -131,15 +142,44 @@ const RecordingOverlay: React.FC = () => {
       };
     };
 
-    setupEventListeners();
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+    setupEventListeners().then((unlisten) => {
+      if (disposed) unlisten();
+      else cleanup = unlisten;
+    });
+    return () => {
+      disposed = true;
+      cleanup?.();
+      clearTimeout(hideTimer.current);
+    };
   }, []);
 
   // Elapsed capture timer starts only once microphone samples are flowing.
   useEffect(() => {
-    if (state !== "streaming" || !isVisible || !captureReady) return;
+    if (
+      !["streaming", "recording"].includes(state) ||
+      !isVisible ||
+      !captureReady
+    )
+      return;
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(id);
   }, [state, isVisible, captureReady]);
+
+  useEffect(() => {
+    if (!isVisible || captureReady || reducedMotion || !waveRef.current) return;
+    const animation = animate(waveRef.current.children, {
+      opacity: [0.35, 0.7, 0.35],
+      delay: stagger(65, { from: "center" }),
+      duration: 900,
+      loop: true,
+      ease: "inOutSine",
+    });
+    return () => {
+      animation.revert();
+    };
+  }, [isVisible, captureReady, reducedMotion, state]);
 
   // Stick to the bottom as text streams in — but only while pinned, so a user who
   // has scrolled up to read history isn't yanked back down by the next chunk.
@@ -157,7 +197,7 @@ const RecordingOverlay: React.FC = () => {
     setOverflowing(false);
   }, [session]);
 
-  if (!isVisible) return null;
+  if (!isMounted) return null;
 
   // Re-pin when the user is within ~a line of the bottom; unpin otherwise.
   const handleStreamScroll = () => {
@@ -171,12 +211,16 @@ const RecordingOverlay: React.FC = () => {
 
   // ---- Shared building blocks (one visual language for every overlay form) ----
   const waveform = (
-    <div className={`swave ${captureReady ? "ready" : "arming"}`}>
+    <div
+      ref={waveRef}
+      aria-hidden="true"
+      className={`swave ${captureReady ? "ready" : "arming"}`}
+    >
       {levels.map((v, i) => (
         <i
           key={i}
           style={{
-            height: `${Math.max(3, Math.min(18, 3 + Math.pow(v, 0.7) * 15))}px`,
+            transform: `scaleY(${Math.max(0.15, Math.min(1, 0.15 + Math.pow(v, 0.7) * 0.85))})`,
           }}
         />
       ))}
@@ -186,7 +230,8 @@ const RecordingOverlay: React.FC = () => {
   const cancelBtn = (
     <button
       className="sx"
-      aria-label="cancel"
+      aria-label={t("tray.cancel")}
+      title={t("tray.cancel")}
       onClick={() => commands.cancelOperation()}
     >
       <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -200,18 +245,16 @@ const RecordingOverlay: React.FC = () => {
     </button>
   );
 
-  // dot (left) | waveform (center) | timer + cancel (right) — same structure for
+  // dot + timer (left) | waveform (center) | cancel (right) — same structure for
   // pill & panel, so the Live morph is a pure width change.
   const listeningRow = (showTimer: boolean, showCancel: boolean) => (
     <div className="sbase">
       <div className="sbase-l">
         <span className={`sdot ${captureReady ? "ready" : "arming"}`} />
+        {showTimer && <span className="stimer">{fmtTime(elapsed)}</span>}
       </div>
       {waveform}
-      <div className="sbase-r">
-        {showTimer && <span className="stimer">{fmtTime(elapsed)}</span>}
-        {showCancel && cancelBtn}
-      </div>
+      <div className="sbase-r">{showCancel && cancelBtn}</div>
     </div>
   );
 
@@ -241,11 +284,19 @@ const RecordingOverlay: React.FC = () => {
 
     return (
       <div dir={direction} className={`ov-stage ${position}`}>
-        <div
+        <motion.div
+          initial={{ opacity: 0, scale: reducedMotion ? 1 : 0.96 }}
+          animate={{
+            opacity: isVisible ? 1 : 0,
+            scale: isVisible || reducedMotion ? 1 : 0.96,
+          }}
+          transition={{
+            type: "spring",
+            duration: isVisible ? 0.35 : 0.16,
+            bounce: isVisible ? 0.18 : 0,
+          }}
           key={session}
-          className={`scard ${open ? "open" : ""} ${collapsed ? "working" : ""} ${
-            isVisible ? "" : "leaving"
-          }`}
+          className={`scard ${open ? "open" : ""} ${collapsed ? "working" : ""}`}
         >
           <div className="stext">
             <div className="stext-clip">
@@ -273,8 +324,8 @@ const RecordingOverlay: React.FC = () => {
                   : t("overlay.transcribing"),
                 true,
               )
-            : listeningRow(open, true)}
-        </div>
+            : listeningRow(true, true)}
+        </motion.div>
       </div>
     );
   }
@@ -289,15 +340,22 @@ const RecordingOverlay: React.FC = () => {
       : t("overlay.transcribing");
 
   return (
-    <div
-      dir={direction}
-      className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
-    >
-      <div
-        className={`scard compact ${working && isVisible ? "cworking" : ""}`}
+    <div dir={direction} className={`ov-stage ${position}`}>
+      <motion.div
+        initial={{ opacity: 0, scale: reducedMotion ? 1 : 0.96 }}
+        animate={{
+          opacity: isVisible ? 1 : 0,
+          scale: isVisible || reducedMotion ? 1 : 0.96,
+        }}
+        transition={{
+          type: "spring",
+          duration: isVisible ? 0.35 : 0.16,
+          bounce: isVisible ? 0.18 : 0,
+        }}
+        className={`scard compact ${working ? "cworking" : ""}`}
       >
-        {working ? workingRow(workLabel, true) : listeningRow(false, true)}
-      </div>
+        {working ? workingRow(workLabel, true) : listeningRow(true, true)}
+      </motion.div>
     </div>
   );
 };
