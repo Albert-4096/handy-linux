@@ -7,6 +7,7 @@ import {
   applyTheme,
   getStoredTheme,
   syncThemeFromSettings,
+  startOmarchyThemeSync,
 } from "./lib/utils/theme";
 
 installCompatShims();
@@ -18,6 +19,7 @@ document.documentElement.dataset.platform = platform();
 // the wrong palette, then reconcile with the persisted setting once it loads.
 applyTheme(getStoredTheme());
 syncThemeFromSettings();
+startOmarchyThemeSync();
 
 // Initialize i18n
 import "./i18n";

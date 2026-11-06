@@ -88,6 +88,10 @@
   --s-hair: var(--dark-s-hair);
 }
 
+:root[data-omarchy] {
+  --s-muted: color-mix(in srgb, var(--color-text) 80%, var(--color-background));
+}
+
 /* ============================================================
    Unified overlay stage — one fixed, transparent container shared by the compact
    pill and the Live panel (both render the same `.scard` base). The card is

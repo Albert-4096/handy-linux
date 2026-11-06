@@ -12,6 +12,7 @@ import type {
   StreamWorkKind,
 } from "@/bindings";
 import i18n, { syncLanguageFromSettings } from "@/i18n";
+import { syncOmarchyTheme } from "@/lib/utils/theme";
 import { getLanguageDirection } from "@/lib/utils/rtl";
 
 type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
@@ -61,6 +62,7 @@ const RecordingOverlay: React.FC = () => {
   useEffect(() => {
     const setupEventListeners = async () => {
       const unlistenShow = await listen("show-overlay", async (event) => {
+        void syncOmarchyTheme();
         clearTimeout(hideTimer.current);
         const overlayState = event.payload as OverlayState;
         // Reset synchronously before settings I/O. A fast microphone can emit

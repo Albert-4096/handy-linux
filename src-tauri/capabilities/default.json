@@ -19,7 +19,11 @@
     "fs:allow-resource-read-recursive",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$APPDATA" }, { "path": "$APPDATA/**/*" }]
+      "allow": [
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**/*" },
+        { "path": "$HOME/.local/state/omarchy/current/theme/colors.toml" }
+      ]
     }
   ]
 }

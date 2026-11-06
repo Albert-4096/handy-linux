@@ -17,6 +17,8 @@ and concentrates on the recording overlay.
 - A readable live transcript that expands from the same pill.
 - Light and dark themes, reduced-motion support, and space around the overlay
   for its shadow.
+- Omarchy palette sync for the popup and settings window when Appearance is
+  set to System. Visible windows pick up theme changes within two seconds.
 - A separate application identifier and data directory, so upstream settings
   and recordings remain separate.
 - Upstream automatic updates are disabled. Install updates from this fork's
@@ -73,6 +75,12 @@ o.bind("SUPER + H", "Toggle Handy Linux dictation", os.getenv("HOME") .. "/.loca
 
 Other desktops can bind the same `--toggle-transcription` command. Keep one
 autostart entry and one shortcut. Add a separate `--cancel` shortcut if desired.
+
+On Omarchy, leave **About → Application Theme** set to **System**. Handy Linux reads
+`~/.local/state/omarchy/current/theme/colors.toml` and follows its background,
+text, accent, and light/dark mode. No Omarchy hook or restart is needed. Explicit
+Light or Dark settings override this integration. If that palette file is
+unavailable, System follows the desktop's normal light/dark preference.
 
 ## Existing Handy data
 

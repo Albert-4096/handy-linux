@@ -16,6 +16,8 @@ test.beforeEach(async ({ page }) => {
     const callbacks = new Map<number, Function>();
     const listeners = new Map<number, { event: string; handler: number }>();
     const calls: string[] = [];
+    const omarchy = { colors: "", delay: 0 };
+    (window as any).__TAURI_OS_PLUGIN_INTERNALS__ = { platform: "linux" };
     const settings = {
       theme: "dark",
       ui_language: "en",
@@ -39,6 +41,13 @@ test.beforeEach(async ({ page }) => {
           listeners.delete(args.eventId);
           return;
         }
+        if (command === "plugin:fs|read_text_file") {
+          const colors = omarchy.colors;
+          if (omarchy.delay)
+            await new Promise((resolve) => setTimeout(resolve, omarchy.delay));
+          if (!colors) throw new Error("No Omarchy theme");
+          return Array.from(new TextEncoder().encode(colors));
+        }
         if (command === "get_app_settings") return settings;
         if (command === "plugin:os|locale") return "en-US";
         return null;
@@ -50,6 +59,7 @@ test.beforeEach(async ({ page }) => {
     (window as any).overlayTest = {
       calls,
       settings,
+      omarchy,
       emit(event: string, payload: unknown) {
         for (const [key, listener] of listeners) {
           if (listener.event === event)
@@ -158,4 +168,92 @@ test("a new recording survives repeated hide events from the previous session", 
   await emit(page, "show-overlay", "recording");
   await page.waitForTimeout(400);
   await expect(page.locator(".scard")).toBeVisible();
+});
+
+test("System appearance follows Omarchy changes and explicit themes take priority", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    (window as any).overlayTest.omarchy.colors =
+      'mode = "dark"\nbackground = "#121212"\nforeground = "#bebebe"\naccent = "#e68e0d"';
+  });
+  await emit(page, "theme-changed", "system");
+  await emit(page, "show-overlay", "recording");
+  await emit(page, "recording-ready");
+  await expect(page.locator(".scard")).toHaveCSS(
+    "background-color",
+    "rgb(18, 18, 18)",
+  );
+  await expect(page.locator(".swave i").first()).toHaveCSS(
+    "background-color",
+    "rgb(230, 142, 13)",
+  );
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.screenshot({
+    path: "/tmp/handy-linux-evidence/omarchy-matte-black.png",
+  });
+  await page.evaluate(() => {
+    (window as any).overlayTest.omarchy.colors =
+      'mode = "light"\nbackground = "#fafafa"\nforeground = "#232323"\naccent = "#2255aa"';
+  });
+  await expect(page.locator(".scard")).toHaveCSS(
+    "background-color",
+    "rgb(250, 250, 250)",
+  );
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".swave i").first()).toHaveCSS(
+    "background-color",
+    "rgb(34, 85, 170)",
+  );
+  await emit(page, "theme-changed", "dark");
+  await expect(page.locator(".scard")).toHaveCSS(
+    "background-color",
+    "rgb(44, 43, 41)",
+  );
+  await page.waitForTimeout(2200);
+  await expect(page.locator(".scard")).toHaveCSS(
+    "background-color",
+    "rgb(44, 43, 41)",
+  );
+});
+
+test("missing or invalid Omarchy colors fall back to the desktop theme", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await emit(page, "theme-changed", "system");
+  await emit(page, "show-overlay", "recording");
+  await expect(page.locator(".scard")).toHaveCSS(
+    "background-color",
+    "rgb(251, 251, 251)",
+  );
+  await page.evaluate(() => {
+    (window as any).overlayTest.omarchy.colors =
+      'background = "#112233"\nforeground = "#ffffff"\naccent = "url(https://invalid.example/)"';
+  });
+  await page.waitForTimeout(2200);
+  await expect(page.locator(".scard")).toHaveCSS(
+    "background-color",
+    "rgb(251, 251, 251)",
+  );
+});
+
+test("an in-flight Omarchy read cannot overwrite an explicit appearance", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    Object.assign((window as any).overlayTest.omarchy, {
+      colors:
+        'background = "#121212"\nforeground = "#bebebe"\naccent = "#e68e0d"',
+      delay: 300,
+    });
+  });
+  await emit(page, "theme-changed", "system");
+  await emit(page, "theme-changed", "light");
+  await emit(page, "show-overlay", "recording");
+  await page.waitForTimeout(500);
+  await expect(page.locator(".scard")).toHaveCSS(
+    "background-color",
+    "rgb(251, 251, 251)",
+  );
 });

@@ -6,6 +6,7 @@ import {
   applyTheme,
   getStoredTheme,
   syncThemeFromSettings,
+  startOmarchyThemeSync,
 } from "@/lib/utils/theme";
 import type { Theme } from "@/bindings";
 import "@/i18n";
@@ -16,6 +17,7 @@ import "@/i18n";
 // the overlay booted first, then follow live changes.
 applyTheme(getStoredTheme());
 syncThemeFromSettings();
+startOmarchyThemeSync();
 listen<Theme>("theme-changed", (event) => applyTheme(event.payload));
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
